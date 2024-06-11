@@ -39,46 +39,30 @@
 
     <!-- Main js -->
     <script th:src="@{/user/assets/js/main.js}"></script>
+    <!--    <script th:src="@{/user/assets/js/cookie_file.js}"></script>-->
     <!-- <script th:src="/user/assets/js/main.min.js"></script> -->
     <script>
         $(document).ready(function () {
-            // Hàm thiết lập cookie
-            function setCookie(name, value, days) {
-                var expires = "";
-                if (days) {
-                    var date = new Date();
-                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-                    expires = "; expires=" + date.toUTCString();
+            // Function to save the cart to sessionStorage
+            function saveCart(cart) {
+                try {
+                    var cartJson = JSON.stringify(cart);
+                    sessionStorage.setItem("cart", cartJson);
+                } catch (error) {
+                    console.error("Error converting cart data to JSON string.");
                 }
-                document.cookie = name + "=" + (value || "") + expires + "; path=/";
             }
 
-            // Hàm lấy giá trị cookie
-            function getCookie(name) {
-                var nameEQ = name + "=";
-                var ca = document.cookie.split(';');
-                for (var i = 0; i < ca.length; i++) {
-                    var c = ca[i];
-                    while (c.charAt(0) == ' ') c = c.substring(1, c.length);
-                    if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
-                }
-                return null;
-            }
-
-            // Hàm xóa cookie
-            function eraseCookie(name) {
-                document.cookie = name + '=; Max-Age=-99999999;';
-            }
-
-            // Hàm kiểm tra xem cookie giỏ hàng có tồn tại không và lấy dữ liệu
+            // Function to load the cart from sessionStorage
             function loadCart() {
-                var cart = getCookie("cart");
+                var cart = sessionStorage.getItem("cart");
                 if (cart) {
                     try {
-                        return JSON.parse(cart);
+                        var cartData = JSON.parse(cart);
+                        return cartData;
                     } catch (e) {
-                        console.error("Giỏ hàng không hợp lệ trong cookie, đặt lại giỏ hàng.");
-                        eraseCookie("cart");
+                        console.error("Invalid data in sessionStorage cart. Resetting cart.");
+                        sessionStorage.removeItem("cart");
                         return [];
                     }
                 } else {
@@ -86,18 +70,13 @@
                 }
             }
 
-            // Hàm lưu giỏ hàng vào cookie
-            function saveCart(cart) {
-                setCookie("cart", JSON.stringify(cart), 1);
-            }
-
-            // Hàm cập nhật giao diện giỏ hàng
+            // Function to update the cart display
             function updateCartDisplay(cart) {
                 $('#cart-list').empty();
                 var totalQuantity = 0;
                 var totalPrice = 0;
 
-                // Tạo đối tượng lưu trữ sản phẩm và số lượng
+                // Create an object to store products and quantities
                 var productCounts = {};
 
                 cart.forEach(function (item) {
@@ -120,7 +99,7 @@
                     }
                 });
 
-                // Hiển thị danh sách sản phẩm
+                // Display the product list
                 for (const productKey in productCounts) {
                     const product = productCounts[productKey];
                     var cartItemHTML = '<li>' +
@@ -130,7 +109,7 @@
                         '<div class="item-details">' +
                         '<span class="item-name">' + product.name + '</span>' +
                         '<span class="item-price">$' + product.price.toFixed(2) + '</span>' +
-                        '<span class="item-quantity">Số lượng: ' + product.quantity + '</span>' +
+                        '<span class="item-quantity">Quantity: ' + product.quantity + '</span>' +
                         '<span class="qtybutton dec"><i class="fa fa-minus"></i></span>' +
                         '<input class="cart-plus-minus-box" value="' + product.quantity + '" type="text">' +
                         '<span class="qtybutton inc"><i class="fa fa-plus"></i></span>' +
@@ -144,12 +123,10 @@
                 $('.ammount').text('$' + totalPrice.toFixed(2));
             }
 
-            // Đặt sự kiện click cho nút "Thêm vào giỏ hàng"
+            // Add click event for the "Add to Cart" button
             $('.add-to-cart-btn').click(function (e) {
-                // Ngăn chặn hành vi mặc định của nút
                 e.preventDefault();
 
-                // Lấy thông tin sản phẩm từ các phần tử HTML tương ứng
                 var productImageSrc = $(this).closest('.sp-area').find('#gallery .active img').attr('src');
                 var productName = $(this).closest('.sp-content').find('.sp-heading h5 a').text();
                 var productPriceText = $(this).closest('.sp-content').find('.sp-essential_stuff li:nth-child(1) a').text();
@@ -158,10 +135,8 @@
                 var cart = loadCart();
                 var existingProductIndex = cart.findIndex(item => item.name === productName);
                 if (existingProductIndex !== -1) {
-                    // Cập nhật số lượng sản phẩm nếu sản phẩm đã tồn tại trong giỏ hàng
                     cart[existingProductIndex].quantity += productQuantity;
                 } else {
-                    // Thêm sản phẩm mới vào giỏ hàng
                     var product = {
                         name: productName,
                         price: productPrice,
@@ -175,7 +150,8 @@
                 updateCartDisplay(cart);
             });
 
-            $(document).on('click', '.qtybutton', function() {
+            // Update quantity in the cart
+            $(document).on('click', '.qtybutton', function () {
                 var $input = $(this).parent().find('.cart-plus-minus-box');
                 var productName = $(this).closest('.item-details').find('.item-name').text();
                 var increment = parseInt($input.val());
@@ -184,26 +160,23 @@
                 if ($(this).hasClass('inc')) {
                     $input.val(increment + 1);
                     cart[indexToUpdate].quantity += 1;
-                    saveCart(cart);
-                    updateCartDisplay(cart);
                 } else {
                     if (increment > 1) {
                         $input.val(increment - 1);
                         cart[indexToUpdate].quantity -= 1;
-                        saveCart(cart);
-                        updateCartDisplay(cart);
                     } else if (increment === 1) {
-                        if (confirm("Bạn có muốn xóa sản phẩm khỏi giỏ hàng không?")) {
+                        if (confirm("Do you want to remove the product from the cart?")) {
                             cart.splice(indexToUpdate, 1);
-                            saveCart(cart);
-                            updateCartDisplay(cart);
                         } else {
                             $input.val(1);
                         }
                     }
                 }
+                saveCart(cart);
+                updateCartDisplay(cart);
             });
 
+            // Remove product from cart
             $(document).on('click', '.product-item_remove', function () {
                 var productName = $(this).closest('.item-details').find('.item-name').text();
                 var cart = loadCart();
@@ -215,9 +188,28 @@
                 }
             });
 
-            // Khi trang tải lại, tải giỏ hàng từ cookie và cập nhật hiển thị
+            // Click event for the "Checkout" button
+            document.getElementById('checkout-btn').addEventListener('click', function () {
+                var cartJson = sessionStorage.getItem("cart");
+                if (cartJson) {
+                    try {
+                        var cart = JSON.parse(cartJson);
+                        sessionStorage.setItem('cart', cartJson);
+                        window.location.href = '/users/checkout';
+                    } catch (error) {
+                        console.error("Error converting cart data from JSON:", error);
+                        sessionStorage.removeItem("cart");
+                    }
+                } else {
+                    console.error("Invalid cart data in sessionStorage.");
+                }
+            });
+
             var cart = loadCart();
             updateCartDisplay(cart);
         });
+
     </script>
+
+
 </div>

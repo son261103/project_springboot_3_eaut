@@ -1,64 +1,196 @@
 <!DOCTYPE html>
 <html lang="en">
-<head th:insert="~{Users/include/head.html :: head}">
-    <title>Checkout</title>
+<head>
+    <meta charset="UTF-8">
+    <title>Checkout Page</title>
+    <style>
+        /* Add basic styling for the checkout page */
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+        }
+        .order-summary {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .order-summary p, .order-summary ul {
+            margin: 0;
+            padding: 0;
+        }
+        .order-summary ul {
+            list-style-type: none;
+        }
+        #payment-form {
+            margin-top: 20px;
+        }
+        #submit-payment-btn {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-<div th:replace="~{Users/include/popup.html :: .popup_header}"></div>
-<div th:replace="~{Users/include/header.html :: header}"></div>
-<div th:replace="~{Users/include/cart.html :: #miniCart}"></div>
-<div th:replace="~{Users/include/header_two.html :: .header-two}"></div>
-<div class="main-wrapper">
-    <!-- Nội dung khác -->
-    <div class="cart-container">
-        <h1>Checkout</h1>
-        <div id="checkout-details">
-            <!-- Thông tin đơn hàng sẽ được cập nhật bằng JavaScript -->
-            <ul id="cart-details"></ul>
-        </div>
-        <button id="process-checkout-btn">Process Checkout</button>
+<div class="container">
+    <h1>Checkout</h1>
+    <div class="order-summary" id="order-info">
+        <p>Loading order information...</p>
     </div>
-    <!-- Các nút và thông tin thanh toán khác -->
+    <div id="payment-form">
+        <h2>Payment Information</h2>
+        <!-- Include payment form inputs here -->
+        <label for="card-number">Card Number:</label>
+        <input type="text" id="card-number" name="card-number" required><br>
+        <label for="expiry-date">Expiry Date:</label>
+        <input type="text" id="expiry-date" name="expiry-date" placeholder="MM/YY" required><br>
+        <label for="cvv">CVV:</label>
+        <input type="text" id="cvv" name="cvv" required><br>
+        <button id="submit-payment-btn">Submit Payment</button>
+    </div>
 </div>
-<!-- Liên kết tới file JavaScript -->
-<div th:replace="~{Users/include/footer.html :: .footer}"></div>
-<div th:replace="~{Users/include/botton-footer.html :: .botton-footer}"></div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Hàm hiển thị giỏ hàng
-        function displayCart(cart) {
-            var cartDetails = document.getElementById('cart-details');
-            cartDetails.innerHTML = ''; // Xóa bỏ nội dung cũ trong #cart-details
-
-            cart.forEach(function (item) {
-                var listItem = document.createElement('li');
-                listItem.textContent = item.name + ': ' + item.quantity; // Hiển thị tên sản phẩm và số lượng
-                cartDetails.appendChild(listItem);
-            });
+    function getCartFromSession() {
+        var cart = sessionStorage.getItem("cart");
+        if (cart) {
+            try {
+                var cartData = JSON.parse(cart);
+                return cartData;
+            } catch (e) {
+                console.error("Invalid cart data in sessionStorage. Resetting cart.");
+                sessionStorage.removeItem("cart");
+                return null;
+            }
         }
+        return null;
+    }
 
-        // Lấy thông tin giỏ hàng từ API và hiển thị lên trang
-        fetch('/users/api/cart')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+    function isValidJSON(str) {
+        try {
+            JSON.parse(str);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function sendCheckoutRequest() {
+        var cart = sessionStorage.getItem("cart");
+        console.log("Cart data in sessionStorage:", cart); // Log cart data
+
+        if (cart) {
+            if (isValidJSON(cart)) {
+                var cartItems = JSON.parse(cart);
+                if (Array.isArray(cartItems) && cartItems.length > 0) {
+                    var cartRequest = {
+                        items: cartItems
+                    };
+
+                    fetch('/users/checkout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(cartRequest)
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json();
+                            } else {
+                                throw new Error('Checkout failed');
+                            }
+                        })
+                        .then(data => {
+                            displayOrderSummary(data);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.getElementById("order-info").innerHTML = '<p>An error occurred. Please try again.</p>';
+                        });
+                } else {
+                    console.error("Empty or invalid cart.");
+                    document.getElementById("order-info").innerHTML = '<p>Invalid cart data. Please try again.</p>';
                 }
-                return response.json();
+            } else {
+                console.error("Invalid cart data in sessionStorage.");
+                document.getElementById("order-info").innerHTML = '<p>Invalid cart data. Please try again.</p>';
+            }
+        } else {
+            console.log("No items in the cart.");
+            document.getElementById("order-info").innerHTML = '<p>No items in cart.</p>';
+        }
+    }
+
+    function displayOrderSummary(data) {
+        var orderInfo = document.getElementById("order-info");
+        orderInfo.innerHTML = '';
+
+        var summary = document.createElement('div');
+        summary.innerHTML = '<h2>Order Summary</h2>';
+
+        var itemList = document.createElement('ul');
+        data.items.forEach(function(item) {
+            var itemElement = document.createElement('li');
+            itemElement.textContent = item.name + ' - Quantity: ' + item.quantity + ' - Price: $' + item.price.toFixed(2);
+            itemList.appendChild(itemElement);
+        });
+
+        summary.appendChild(itemList);
+
+        var totalAmount = document.createElement('p');
+        totalAmount.textContent = 'Total Amount: $' + data.totalAmount.toFixed(2);
+        summary.appendChild(totalAmount);
+
+        orderInfo.appendChild(summary);
+    }
+
+    function submitPayment() {
+        // Collect payment information from the form and send it to the server
+        var paymentData = {
+            // Include payment data here, such as credit card information, billing
+            cardNumber: document.getElementById('card-number').value,
+            expiryDate: document.getElementById('expiry-date').value,
+            cvv: document.getElementById('cvv').value
+        };
+
+        fetch('/users/process-payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(paymentData)
+        })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Payment processing failed');
+                }
             })
             .then(data => {
-                displayCart(data); // Hiển thị thông tin giỏ hàng lên trang
+                console.log('Payment successful:', data);
+                alert('Payment successful!'); // You can customize this message
+                // Redirect or perform any other actions after successful payment
             })
             .catch(error => {
-                console.error('Error fetching cart data:', error);
+                console.error('Error:', error);
+                alert('Payment failed. Please try again.'); // You can customize this message
             });
+    }
 
-        // Xử lý sự kiện khi nhấn nút "Process Checkout"
-        document.getElementById('process-checkout-btn').addEventListener('click', function() {
-            window.location.href = '/users/checkout';
-        });
-    });
+    document.getElementById('submit-payment-btn').addEventListener('click', submitPayment);
+
+    // Initial cart data loading and display
+    var cart = getCartFromSession();
+    if (cart) {
+        displayOrderSummary({ items: cart, totalAmount: cart.reduce((total, item) => total + (item.price * item.quantity), 0) });
+    } else {
+        document.getElementById("order-info").innerHTML = '<p>No items in cart.</p>';
+    }
 </script>
-
 </body>
 </html>
