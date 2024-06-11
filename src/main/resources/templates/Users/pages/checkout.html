@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head th:insert="~{Users/include/head.html :: head}">
+    <title>Checkout</title>
+</head>
+<body>
+<div th:replace="~{Users/include/popup.html :: .popup_header}"></div>
+<div th:replace="~{Users/include/header.html :: header}"></div>
+<div th:replace="~{Users/include/cart.html :: #miniCart}"></div>
+<div th:replace="~{Users/include/header_two.html :: .header-two}"></div>
+<div class="main-wrapper">
+    <!-- Nội dung khác -->
+    <div class="cart-container">
+        <h1>Checkout</h1>
+        <div id="checkout-details">
+            <!-- Thông tin đơn hàng sẽ được cập nhật bằng JavaScript -->
+            <ul id="cart-details"></ul>
+        </div>
+        <button id="process-checkout-btn">Process Checkout</button>
+    </div>
+    <!-- Các nút và thông tin thanh toán khác -->
+</div>
+<!-- Liên kết tới file JavaScript -->
+<div th:replace="~{Users/include/footer.html :: .footer}"></div>
+<div th:replace="~{Users/include/botton-footer.html :: .botton-footer}"></div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Hàm hiển thị giỏ hàng
+        function displayCart(cart) {
+            var cartDetails = document.getElementById('cart-details');
+            cartDetails.innerHTML = ''; // Xóa bỏ nội dung cũ trong #cart-details
+
+            cart.forEach(function (item) {
+                var listItem = document.createElement('li');
+                listItem.textContent = item.name + ': ' + item.quantity; // Hiển thị tên sản phẩm và số lượng
+                cartDetails.appendChild(listItem);
+            });
+        }
+
+        // Lấy thông tin giỏ hàng từ API và hiển thị lên trang
+        fetch('/users/api/cart')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayCart(data); // Hiển thị thông tin giỏ hàng lên trang
+            })
+            .catch(error => {
+                console.error('Error fetching cart data:', error);
+            });
+
+        // Xử lý sự kiện khi nhấn nút "Process Checkout"
+        document.getElementById('process-checkout-btn').addEventListener('click', function() {
+            window.location.href = '/users/checkout';
+        });
+    });
+</script>
+
+</body>
+</html>
